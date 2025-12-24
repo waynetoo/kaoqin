@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>员工缺勤考勤系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-calendar-x"></i> 员工缺勤考勤系统
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#" data-section="dashboard">
+                            <i class="bi bi-speedometer2"></i> 仪表盘
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="employees">
+                            <i class="bi bi-people"></i> 员工管理
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="attendance">
+                            <i class="bi bi-calendar-check"></i> 缺勤记录
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-section="statistics">
+                            <i class="bi bi-graph-up"></i> 统计分析
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- 仪表盘部分 -->
+        <div id="dashboard-section" class="content-section">
+            <h2 class="mb-4">仪表盘</h2>
+            
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="total-employees">-</h4>
+                                    <p class="card-text">员工总数</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-people fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="monthly-absences">-</h4>
+                                    <p class="card-text">本月缺勤天数</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-calendar-x fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-danger">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="today-absences">-</h4>
+                                    <p class="card-text">今日缺勤次数</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-calendar-x fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="yearly-absences">-</h4>
+                                    <p class="card-text">本年缺勤天数</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-calendar2-x fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 最近记录 -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h4 class="mb-3">最近记录</h4>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6>缺勤记录列表</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>员工</th>
+                                            <th>日期</th>
+                                            <th>类型</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recent-attendance">
+                                        <tr>
+                                            <td colspan="3" class="text-center">加载中...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6>缺勤类型分布</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="recent-chart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 最近一个月 -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h4 class="mb-3">最近一个月</h4>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6>缺勤记录列表</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>员工</th>
+                                            <th>缺勤天数</th>
+                                            <th>详情</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="month-attendance">
+                                        <tr>
+                                            <td colspan="3" class="text-center">加载中...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6>人员缺勤天数对比</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="month-chart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 最近三个月 -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h4 class="mb-3">最近三个月</h4>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6>缺勤记录列表</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>员工</th>
+                                            <th>缺勤天数</th>
+                                            <th>详情</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="quarter-attendance">
+                                        <tr>
+                                            <td colspan="3" class="text-center">加载中...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6>人员缺勤天数对比</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="quarter-chart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 员工管理部分 -->
+        <div id="employees-section" class="content-section" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>员工管理</h2>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#employeeModal">
+                    <i class="bi bi-plus-circle"></i> 添加员工
+                </button>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>工号</th>
+                                    <th>姓名</th>
+                                    <th>职位</th>
+                                    <th>入职日期</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employees-table">
+                                <tr>
+                                    <td colspan="7" class="text-center">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 缺勤记录部分 -->
+        <div id="attendance-section" class="content-section" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>缺勤记录</h2>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#attendanceModal">
+                    <i class="bi bi-plus-circle"></i> 添加缺勤记录
+                </button>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label for="filter-employee" class="form-label">员工</label>
+                            <select class="form-select" id="filter-employee">
+                                <option value="">全部员工</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="filter-start-date" class="form-label">开始日期</label>
+                            <input type="date" class="form-control" id="filter-start-date">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="filter-end-date" class="form-label">结束日期</label>
+                            <input type="date" class="form-control" id="filter-end-date">
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button class="btn btn-outline-primary me-2" id="apply-filters">
+                                <i class="bi bi-funnel"></i> 应用筛选
+                            </button>
+                            <button class="btn btn-outline-secondary" id="reset-filters">
+                                <i class="bi bi-arrow-clockwise"></i> 重置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>员工</th>
+                                    <th>日期</th>
+                                    <th>缺勤类型</th>
+                                    <th>原因</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendance-table">
+                                <tr>
+                                    <td colspan="6" class="text-center">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center" id="attendance-pagination">
+                            <!-- 分页按钮将由JavaScript动态生成 -->
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计分析部分 -->
+        <div id="statistics-section" class="content-section" style="display: none;">
+            <h2 class="mb-4">统计分析</h2>
+            
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label for="stats-type" class="form-label">统计类型</label>
+                            <select class="form-select" id="stats-type">
+                                <option value="monthly">月度统计</option>
+                                <option value="yearly">年度统计</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="stats-year" class="form-label">年份</label>
+                            <select class="form-select" id="stats-year">
+                                <!-- 年份选项将由JavaScript动态生成 -->
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="stats-month" class="form-label" id="stats-month-label">月份</label>
+                            <select class="form-select" id="stats-month">
+                                <option value="1">1月</option>
+                                <option value="2">2月</option>
+                                <option value="3">3月</option>
+                                <option value="4">4月</option>
+                                <option value="5">5月</option>
+                                <option value="6">6月</option>
+                                <option value="7">7月</option>
+                                <option value="8">8月</option>
+                                <option value="9">9月</option>
+                                <option value="10">10月</option>
+                                <option value="11">11月</option>
+                                <option value="12">12月</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button class="btn btn-primary" id="generate-stats">
+                                <i class="bi bi-bar-chart"></i> 生成统计
+                            </button>
+                        </div>
+                        <div class="col-md-8 d-flex align-items-end justify-content-end">
+                            <button class="btn btn-success me-2" id="export-monthly">
+                                <i class="bi bi-file-earmark-excel"></i> 导出月度记录
+                            </button>
+                            <button class="btn btn-success" id="export-yearly">
+                                <i class="bi bi-file-earmark-excel"></i> 导出年度记录
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>员工缺勤排名</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>排名</th>
+                                            <th>员工</th>
+                                            <th>缺勤天数</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="stats-employee-ranking">
+                                        <tr>
+                                            <td colspan="4" class="text-center">请先生成统计</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>缺勤类型统计</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="stats-absence-type-chart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5>统计汇总</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="stats-summary">
+                        <div class="col-md-12 text-center">
+                            <p>请先生成统计</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 员工模态框 -->
+    <div class="modal fade" id="employeeModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="employeeModalTitle">添加员工</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="employeeForm">
+                        <input type="hidden" id="employee-id">
+                        <div class="mb-3">
+                            <label for="employee-number" class="form-label">工号</label>
+                            <input type="text" class="form-control" id="employee-number" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="employee-name" class="form-label">姓名</label>
+                            <input type="text" class="form-control" id="employee-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="employee-position" class="form-label">职位</label>
+                            <input type="text" class="form-control" id="employee-position">
+                        </div>
+                        <div class="mb-3">
+                            <label for="employee-hire-date" class="form-label">入职日期</label>
+                            <input type="date" class="form-control" id="employee-hire-date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="employee-phone" class="form-label">电话</label>
+                            <input type="text" class="form-control" id="employee-phone">
+                        </div>
+                        <div class="mb-3">
+                            <label for="employee-email" class="form-label">邮箱</label>
+                            <input type="email" class="form-control" id="employee-email">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="save-employee">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 缺勤记录模态框 -->
+    <div class="modal fade" id="attendanceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="attendanceModalTitle">添加缺勤记录</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="attendanceForm">
+                        <input type="hidden" id="attendance-id">
+                        <div class="mb-3">
+                            <label for="attendance-employee" class="form-label">员工</label>
+                            <select class="form-select" id="attendance-employee" required>
+                                <option value="">请选择员工</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="attendance-date" class="form-label">缺勤日期</label>
+                            <input type="date" class="form-control" id="attendance-date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="attendance-type" class="form-label">缺勤类型</label>
+                            <select class="form-select" id="attendance-type" required>
+                                <option value="">请选择缺勤类型</option>
+                                <option value="morning">上午</option>
+                                <option value="afternoon">下午</option>
+                                <option value="full_day">全天</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="attendance-reason" class="form-label">缺勤原因</label>
+                            <textarea class="form-control" id="attendance-reason" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="attendance-notes" class="form-label">备注</label>
+                            <textarea class="form-control" id="attendance-notes" rows="2"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="save-attendance">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 审批模态框已移除，因为不再需要审批流程 -->
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
