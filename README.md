@@ -1,6 +1,8 @@
 # 员工缺勤考勤系统
 
 这是一个基于Supabase数据库的员工缺勤考勤系统，专注于记录和统计员工的缺勤情况。
+<img width="1685" height="1186" alt="image" src="https://github.com/user-attachments/assets/4525d505-b6aa-46bf-ae5d-58efcfe8abf8" />
+
 
 ## 功能特点
 
