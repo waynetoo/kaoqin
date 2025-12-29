@@ -169,3 +169,29 @@ body {
 #department-chart, #stats-department-chart {
     max-height: 300px;
 }
+
+/* 表格行背景色 */
+.table-light-danger {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+}
+
+.table-light-warning {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+.table-light-info {
+    background-color: rgba(13, 202, 240, 0.1) !important;
+}
+
+/* 表格行悬停效果 */
+.table-light-danger:hover {
+    background-color: rgba(220, 53, 69, 0.2) !important;
+}
+
+.table-light-warning:hover {
+    background-color: rgba(255, 193, 7, 0.2) !important;
+}
+
+.table-light-info:hover {
+    background-color: rgba(13, 202, 240, 0.2) !important;
+}

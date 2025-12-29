@@ -15,10 +15,12 @@ app.use(express.static('public'));
 const employeeRoutes = require('./routes/employees');
 const attendanceRoutes = require('./routes/attendance');
 const statisticsRoutes = require('./routes/statistics');
+const lateEarlyStatisticsRoutes = require('./routes/lateEarlyStatistics');
 
 app.use('/api/employees', employeeRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/statistics', statisticsRoutes);
+app.use('/api/late-early-statistics', lateEarlyStatisticsRoutes);
 
 // 根路径
 app.get('/', (req, res) => {

@@ -214,13 +214,35 @@ async function loadDashboardData() {
         if (recentRecords.records.length === 0) {
             recentAttendanceTable.innerHTML = '<tr><td colspan="3" class="text-center">暂无记录</td></tr>';
         } else {
-            recentAttendanceTable.innerHTML = recentRecords.records.map(record => `
-                <tr>
-                    <td>${record.employee ? record.employee.name : '未知'}</td>
-                    <td>${record.date}</td>
-                    <td>${getAbsenceTypeText(record.absence_type)}</td>
-                </tr>
-            `).join('');
+            recentAttendanceTable.innerHTML = recentRecords.records.map(record => {
+                // 根据考勤类型显示不同的信息
+                let typeText = '';
+                let rowClass = '';
+                
+                if (record.attendance_type === 'absence') {
+                    typeText = getAbsenceTypeText(record.absence_type);
+                    // 缺勤记录使用浅红色背景
+                    rowClass = 'table-light-danger';
+                } else if (record.attendance_type === 'late') {
+                    typeText = '迟到';
+                    // 迟到记录使用浅黄色背景
+                    rowClass = 'table-light-warning';
+                } else if (record.attendance_type === 'early_leave') {
+                    typeText = '早退';
+                    // 早退记录使用浅蓝色背景
+                    rowClass = 'table-light-info';
+                } else {
+                    typeText = getAttendanceTypeText(record.attendance_type);
+                }
+                
+                return `
+                    <tr class="${rowClass}">
+                        <td>${record.employee ? record.employee.name : '未知'}</td>
+                        <td>${record.date}</td>
+                        <td>${typeText}</td>
+                    </tr>
+                `;
+            }).join('');
         }
         
         // 加载最近一个月缺勤记录
@@ -260,7 +282,7 @@ async function loadMonthAttendanceData() {
             employeesWithAbsences.sort((a, b) => b.total_absence_days - a.total_absence_days);
             
             monthAttendanceTable.innerHTML = employeesWithAbsences.map(emp => `
-                <tr>
+                <tr class="table-light-danger">
                     <td>${emp.name}</td>
                     <td>${emp.total_absence_days} 天</td>
                     <td>
@@ -328,7 +350,7 @@ async function loadQuarterAttendanceData() {
             employeesWithAbsences.sort((a, b) => b.total_absence_days - a.total_absence_days);
             
             quarterAttendanceTable.innerHTML = employeesWithAbsences.map(emp => `
-                <tr>
+                <tr class="table-light-danger">
                     <td>${emp.name}</td>
                     <td>${emp.total_absence_days.toFixed(1)} 天</td>
                     <td>
@@ -357,34 +379,65 @@ function drawRecentTypeChart(recentRecords) {
         recentChart.destroy();
     }
     
-    // 统计缺勤类型
-    const typeCounts = {
-        '上午': 0,
-        '下午': 0,
-        '全天': 0
-    };
+    // 统计考勤类型
+    const typeCounts = {};
     
     recentRecords.forEach(record => {
-        typeCounts[getAbsenceTypeText(record.absence_type)]++;
+        let typeText = '';
+        if (record.attendance_type === 'absence') {
+            // 只统计非none的缺勤类型
+            if (record.absence_type && record.absence_type !== 'none') {
+                typeText = getAbsenceTypeText(record.absence_type);
+            }
+        } else if (record.attendance_type === 'late') {
+            typeText = '迟到';
+        } else if (record.attendance_type === 'early_leave') {
+            typeText = '早退';
+        }
+        
+        // 只统计有效的类型
+        if (typeText) {
+            typeCounts[typeText] = (typeCounts[typeText] || 0) + 1;
+        }
     });
+    
+    // 如果没有数据，显示提示
+    if (Object.keys(typeCounts).length === 0) {
+        typeCounts['暂无数据'] = 1;
+    }
+    
+    // 为不同类型设置颜色
+    const colors = {
+        '上午': 'rgba(255, 193, 7, 0.7)',      // 黄色
+        '下午': 'rgba(13, 202, 240, 0.7)',    // 蓝色
+        '全天': 'rgba(220, 53, 69, 0.7)',      // 红色
+        '迟到': 'rgba(255, 99, 132, 0.7)',     // 粉红色
+        '早退': 'rgba(54, 162, 235, 0.7)',     // 浅蓝色
+        '暂无数据': 'rgba(200, 200, 200, 0.7)' // 灰色
+    };
+    
+    const borderColors = {
+        '上午': 'rgba(255, 193, 7, 1)',
+        '下午': 'rgba(13, 202, 240, 1)',
+        '全天': 'rgba(220, 53, 69, 1)',
+        '迟到': 'rgba(255, 99, 132, 1)',
+        '早退': 'rgba(54, 162, 235, 1)',
+        '暂无数据': 'rgba(200, 200, 200, 1)'
+    };
+    
+    // 获取对应的颜色数组
+    const backgroundColors = Object.keys(typeCounts).map(type => colors[type] || 'rgba(153, 102, 255, 0.7)');
+    const borderColorsArray = Object.keys(typeCounts).map(type => borderColors[type] || 'rgba(153, 102, 255, 1)');
     
     recentChart = new Chart(ctx, {
         type: 'pie',
         data: {
             labels: Object.keys(typeCounts),
             datasets: [{
-                label: '缺勤次数',
+                label: '考勤次数',
                 data: Object.values(typeCounts),
-                backgroundColor: [
-                    'rgba(255, 193, 7, 0.7)',    // 黄色 - 上午
-                    'rgba(13, 202, 240, 0.7)',  // 蓝色 - 下午
-                    'rgba(220, 53, 69, 0.7)'     // 红色 - 全天
-                ],
-                borderColor: [
-                    'rgba(255, 193, 7, 1)',
-                    'rgba(13, 202, 240, 1)',
-                    'rgba(220, 53, 69, 1)'
-                ],
+                backgroundColor: backgroundColors,
+                borderColor: borderColorsArray,
                 borderWidth: 1
             }]
         },
@@ -854,22 +907,30 @@ async function loadAttendance(page = 1) {
         attendanceTable.innerHTML = attendanceData.records.map(record => {
             // 根据考勤类型显示不同的信息
             let typeInfo = '';
+            let rowClass = '';
+            
             if (record.attendance_type === 'absence') {
                 typeInfo = getAbsenceTypeText(record.absence_type);
+                // 缺勤记录使用浅红色背景
+                rowClass = 'table-light-danger';
             } else if (record.attendance_type === 'late') {
                 typeInfo = `迟到 ${record.late_minutes || 0} 分钟`;
                 if (record.check_in_time) {
                     typeInfo += ` (打卡时间: ${record.check_in_time})`;
                 }
+                // 迟到记录使用浅黄色背景
+                rowClass = 'table-light-warning';
             } else if (record.attendance_type === 'early_leave') {
                 typeInfo = `早退 ${record.early_leave_minutes || 0} 分钟`;
                 if (record.check_out_time) {
                     typeInfo += ` (打卡时间: ${record.check_out_time})`;
                 }
+                // 早退记录使用浅蓝色背景
+                rowClass = 'table-light-info';
             }
             
             return `
-                <tr>
+                <tr class="${rowClass}">
                     <td>${record.employee ? `${record.employee.name} (${record.employee.employee_id})` : '未知'}</td>
                     <td>${record.date}</td>
                     <td>${getAttendanceTypeText(record.attendance_type)}</td>
@@ -1433,3 +1494,299 @@ async function exportYearlyRecords() {
 //     };
 //     return classes[status] || 'bg-secondary';
 // }
+
+// 迟到早退统计相关函数
+async function loadLateEarlyMonthlyStats() {
+    try {
+        const monthInput = document.getElementById('lateEarlyMonth');
+        if (!monthInput.value) {
+            showAlert('请选择月份', 'warning');
+            return;
+        }
+        
+        const [year, month] = monthInput.value.split('-');
+        
+        // 显示加载状态
+        document.getElementById('lateEarlyStatsResult').style.display = 'block';
+        document.getElementById('lateEarlyStatsTableBody').innerHTML = '<tr><td colspan="7" class="text-center">加载中...</td></tr>';
+        
+        // 调用API获取月度统计数据
+        const response = await apiRequest(`/api/late-early-statistics/monthly/${year}/${month}`);
+        
+        if (response && response.employee_statistics) {
+            displayLateEarlyStats(response.employee_statistics, 'monthly', `${year}年${month}月`);
+        } else {
+            document.getElementById('lateEarlyStatsTableBody').innerHTML = '<tr><td colspan="7" class="text-center">暂无数据</td></tr>';
+        }
+    } catch (error) {
+        console.error('加载月度迟到早退统计失败:', error);
+        document.getElementById('lateEarlyStatsTableBody').innerHTML = '<tr><td colspan="7" class="text-center text-danger">加载失败</td></tr>';
+    }
+}
+
+async function loadLateEarlyYearlyStats() {
+    try {
+        const year = document.getElementById('lateEarlyYear').value;
+        
+        // 显示加载状态
+        document.getElementById('lateEarlyStatsResult').style.display = 'block';
+        document.getElementById('lateEarlyStatsTableBody').innerHTML = '<tr><td colspan="7" class="text-center">加载中...</td></tr>';
+        
+        // 调用API获取年度统计数据
+        const response = await apiRequest(`/api/late-early-statistics/yearly/${year}`);
+        
+        if (response && response.employee_statistics) {
+            displayLateEarlyStats(response.employee_statistics, 'yearly', `${year}年`);
+        } else {
+            document.getElementById('lateEarlyStatsTableBody').innerHTML = '<tr><td colspan="7" class="text-center">暂无数据</td></tr>';
+        }
+    } catch (error) {
+        console.error('加载年度迟到早退统计失败:', error);
+        document.getElementById('lateEarlyStatsTableBody').innerHTML = '<tr><td colspan="7" class="text-center text-danger">加载失败</td></tr>';
+    }
+}
+
+function displayLateEarlyStats(statsData, type, periodTitle) {
+    // 更新标题
+    document.getElementById('statsPeriodTitle').innerHTML = `<i class="bi bi-bar-chart"></i> ${periodTitle}迟到早退统计`;
+    
+    // 清空表格
+    const tableBody = document.getElementById('lateEarlyStatsTableBody');
+    tableBody.innerHTML = '';
+    
+    if (!statsData || statsData.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" class="text-center">暂无数据</td></tr>';
+        return;
+    }
+    
+    // 填充表格数据
+    statsData.forEach(stat => {
+        const row = document.createElement('tr');
+        
+        // 根据迟到早退情况添加背景色
+        if (stat.late_count > 0 && stat.early_leave_count > 0) {
+            row.className = 'table-light-danger'; // 既有迟到又有早退，使用红色
+        } else if (stat.late_count > 0) {
+            row.className = 'table-light-warning'; // 只有迟到，使用黄色
+        } else if (stat.early_leave_count > 0) {
+            row.className = 'table-light-info'; // 只有早退，使用蓝色
+        }
+        
+        // 添加迟到次数样式
+        const lateCountClass = stat.late_count > 0 ? 'text-danger' : '';
+        const earlyLeaveCountClass = stat.early_leave_count > 0 ? 'text-warning' : '';
+        
+        row.innerHTML = `
+            <td>${stat.employee_number || '-'}</td>
+            <td>${stat.name}</td>
+            <td class="${lateCountClass}">${stat.late_count}</td>
+            <td class="${lateCountClass}">${stat.formatted_late_time}</td>
+            <td class="${earlyLeaveCountClass}">${stat.early_leave_count}</td>
+            <td class="${earlyLeaveCountClass}">${stat.formatted_early_leave_time}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-info" onclick="showEmployeeLateEarlyDetails('${stat.employee_id}', '${type}', '${periodTitle}')">
+                    <i class="bi bi-eye"></i> 详情
+                </button>
+            </td>
+        `;
+        
+        tableBody.appendChild(row);
+    });
+}
+
+async function showEmployeeLateEarlyDetails(employeeId, type, periodTitle) {
+    try {
+        // 显示加载状态
+        const modalContent = document.getElementById('employeeLateEarlyDetailsContent');
+        modalContent.innerHTML = '<div class="text-center">加载中...</div>';
+        
+        // 显示模态框
+        const modal = new bootstrap.Modal(document.getElementById('employeeLateEarlyDetailsModal'));
+        modal.show();
+        
+        // 根据统计类型调用不同的API
+        let url;
+        if (type === 'monthly') {
+            const [year, month] = periodTitle.match(/\d+/g);
+            url = `/api/late-early-statistics/monthly/${year}/${month}/employee/${employeeId}`;
+        } else {
+            const year = periodTitle.match(/\d+/g)[0];
+            url = `/api/late-early-statistics/yearly/${year}/employee/${employeeId}`;
+        }
+        
+        // 获取员工详细统计数据
+        const response = await apiRequest(url);
+        
+        if (response && response.data) {
+            displayEmployeeLateEarlyDetails(response.data);
+        } else {
+            modalContent.innerHTML = '<div class="alert alert-info">暂无详细数据</div>';
+        }
+    } catch (error) {
+        console.error('加载员工迟到早退详情失败:', error);
+        document.getElementById('employeeLateEarlyDetailsContent').innerHTML = '<div class="alert alert-danger">加载失败</div>';
+    }
+}
+
+function displayEmployeeLateEarlyDetails(detailData) {
+    const modalContent = document.getElementById('employeeLateEarlyDetailsContent');
+    
+    // 创建详情HTML
+    let detailsHTML = `
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6><i class="bi bi-person-badge"></i> 员工信息</h6>
+            </div>
+            <div class="card-body">
+                <p><strong>员工编号:</strong> ${detailData.employee_number}</p>
+                <p><strong>姓名:</strong> ${detailData.name}</p>
+                <p><strong>统计周期:</strong> ${detailData.year}年${detailData.month ? detailData.month + '月' : ''}</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header bg-danger text-white">
+                        <h6><i class="bi bi-clock"></i> 迟到统计</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>迟到次数:</strong> <span class="text-danger">${detailData.late_count}</span></p>
+                        <p><strong>总迟到时长:</strong> <span class="text-danger">${detailData.formatted_late_time}</span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header bg-warning text-dark">
+                        <h6><i class="bi bi-clock-history"></i> 早退统计</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>早退次数:</strong> <span class="text-warning">${detailData.early_leave_count}</span></p>
+                        <p><strong>总早退时长:</strong> <span class="text-warning">${detailData.formatted_early_leave_time}</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 添加详细记录
+    if (detailData.late_records && detailData.late_records.length > 0) {
+        detailsHTML += `
+            <div class="card mb-3">
+                <div class="card-header bg-danger text-white">
+                    <h6><i class="bi bi-list-ul"></i> 迟到详细记录</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>日期</th>
+                                    <th>打卡时间</th>
+                                    <th>迟到分钟</th>
+                                    <th>原因</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${detailData.late_records.map(record => `
+                                    <tr>
+                                        <td>${record.date}</td>
+                                        <td>${record.check_in_time || '-'}</td>
+                                        <td>${record.late_minutes || 0}分钟</td>
+                                        <td>${record.reason || '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    if (detailData.early_leave_records && detailData.early_leave_records.length > 0) {
+        detailsHTML += `
+            <div class="card mb-3">
+                <div class="card-header bg-warning text-dark">
+                    <h6><i class="bi bi-list-ul"></i> 早退详细记录</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>日期</th>
+                                    <th>打卡时间</th>
+                                    <th>早退分钟</th>
+                                    <th>原因</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${detailData.early_leave_records.map(record => `
+                                    <tr>
+                                        <td>${record.date}</td>
+                                        <td>${record.check_out_time || '-'}</td>
+                                        <td>${record.early_leave_minutes || 0}分钟</td>
+                                        <td>${record.reason || '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    modalContent.innerHTML = detailsHTML;
+}
+
+async function exportLateEarlyStats() {
+    try {
+        // 检查当前是否有统计数据
+        const tableBody = document.getElementById('lateEarlyStatsTableBody');
+        if (!tableBody || tableBody.children.length === 0 || 
+            (tableBody.children.length === 1 && tableBody.children[0].textContent.includes('暂无数据'))) {
+            showAlert('没有可导出的数据', 'warning');
+            return;
+        }
+        
+        // 获取当前统计类型和周期
+        const periodTitle = document.getElementById('statsPeriodTitle').textContent;
+        let type = 'monthly';
+        let url;
+        
+        if (periodTitle.includes('年') && !periodTitle.includes('月')) {
+            type = 'yearly';
+            const year = periodTitle.match(/\d+/g)[0];
+            url = `/api/late-early-statistics/yearly/${year}/export`;
+        } else {
+            const [year, month] = periodTitle.match(/\d+/g);
+            url = `/api/late-early-statistics/monthly/${year}/${month}/export`;
+        }
+        
+        // 显示加载状态
+        showAlert('正在导出数据...', 'info');
+        
+        // 调用导出API
+        const response = await apiRequest(url);
+        
+        if (response && response.download_url) {
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.href = response.download_url;
+            link.download = response.filename || `${periodTitle}迟到早退统计.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showAlert('导出成功', 'success');
+        } else {
+            showAlert('导出失败', 'danger');
+        }
+    } catch (error) {
+        console.error('导出迟到早退统计失败:', error);
+        showAlert('导出失败', 'danger');
+    }
+}
