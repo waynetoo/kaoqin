@@ -104,19 +104,49 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// 添加新的缺勤记录
+// 添加新的考勤记录
 router.post('/', async (req, res) => {
   try {
-    const { employee_id, date, absence_type, reason, notes } = req.body;
+    const { 
+      employee_id, 
+      date, 
+      attendance_type = 'absence', // 默认为缺勤
+      absence_type, 
+      reason, 
+      notes,
+      late_minutes = 0,
+      early_leave_minutes = 0,
+      check_in_time,
+      check_out_time
+    } = req.body;
     
     // 验证必填字段
-    if (!employee_id || !date || !absence_type) {
-      return res.status(400).json({ error: '员工ID、日期和缺勤类型为必填项' });
+    if (!employee_id || !date || !attendance_type) {
+      return res.status(400).json({ error: '员工ID、日期和考勤类型为必填项' });
     }
     
-    // 验证缺勤类型
-    if (!['morning', 'afternoon', 'full_day'].includes(absence_type)) {
+    // 验证考勤类型
+    if (!['absence', 'late', 'early_leave'].includes(attendance_type)) {
+      return res.status(400).json({ error: '考勤类型必须是absence、late或early_leave' });
+    }
+    
+    // 如果是缺勤类型，验证缺勤类型
+    if (attendance_type === 'absence' && !absence_type) {
+      return res.status(400).json({ error: '缺勤记录必须指定缺勤类型' });
+    }
+    
+    if (attendance_type === 'absence' && !['morning', 'afternoon', 'full_day'].includes(absence_type)) {
       return res.status(400).json({ error: '缺勤类型必须是morning、afternoon或full_day' });
+    }
+    
+    // 如果是迟到类型，验证打卡时间
+    if (attendance_type === 'late' && !check_in_time) {
+      return res.status(400).json({ error: '迟到记录必须指定打卡时间' });
+    }
+    
+    // 如果是早退类型，验证打卡时间
+    if (attendance_type === 'early_leave' && !check_out_time) {
+      return res.status(400).json({ error: '早退记录必须指定打卡时间' });
     }
     
     // 验证日期格式
@@ -125,21 +155,38 @@ router.post('/', async (req, res) => {
     }
     
     // 检查是否已存在相同的记录
-    const { data: existingRecord } = await supabase
+    let existingQuery = supabase
       .from('attendance_records')
       .select('*')
       .eq('employee_id', employee_id)
       .eq('date', date)
-      .eq('absence_type', absence_type)
-      .single();
+      .eq('attendance_type', attendance_type);
+    
+    // 如果是缺勤类型，还要检查缺勤类型
+    if (attendance_type === 'absence') {
+      existingQuery = existingQuery.eq('absence_type', absence_type);
+    }
+    
+    const { data: existingRecord } = await existingQuery.single();
     
     if (existingRecord) {
-      return res.status(400).json({ error: '该员工在此日期的此类型缺勤记录已存在' });
+      return res.status(400).json({ error: '该员工在此日期的此类型考勤记录已存在' });
     }
 
     const { data, error } = await supabase
       .from('attendance_records')
-      .insert([{ employee_id, date, absence_type, reason, notes }])
+      .insert([{
+        employee_id, 
+        date, 
+        attendance_type,
+        absence_type: attendance_type === 'absence' ? absence_type : 'none',
+        reason, 
+        notes,
+        late_minutes: attendance_type === 'late' ? late_minutes : 0,
+        early_leave_minutes: attendance_type === 'early_leave' ? early_leave_minutes : 0,
+        check_in_time: attendance_type === 'late' ? check_in_time : null,
+        check_out_time: attendance_type === 'early_leave' ? check_out_time : null
+      }])
       .select();
 
     if (error) throw error;
@@ -149,15 +196,41 @@ router.post('/', async (req, res) => {
   }
 });
 
-// 更新缺勤记录
+// 更新考勤记录
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { employee_id, date, absence_type, reason, notes } = req.body;
+    const { 
+      employee_id, 
+      date, 
+      attendance_type, 
+      absence_type, 
+      reason, 
+      notes,
+      late_minutes,
+      early_leave_minutes,
+      check_in_time,
+      check_out_time
+    } = req.body;
     
-    // 验证缺勤类型
-    if (absence_type && !['morning', 'afternoon', 'full_day'].includes(absence_type)) {
+    // 验证考勤类型
+    if (attendance_type && !['absence', 'late', 'early_leave', 'normal'].includes(attendance_type)) {
+      return res.status(400).json({ error: '考勤类型必须是absence、late、early_leave或normal' });
+    }
+    
+    // 如果是缺勤类型，验证缺勤类型
+    if (attendance_type === 'absence' && absence_type && !['morning', 'afternoon', 'full_day'].includes(absence_type)) {
       return res.status(400).json({ error: '缺勤类型必须是morning、afternoon或full_day' });
+    }
+    
+    // 如果是迟到类型，验证迟到分钟数
+    if (attendance_type === 'late' && late_minutes !== undefined && late_minutes <= 0) {
+      return res.status(400).json({ error: '迟到分钟数必须大于0' });
+    }
+    
+    // 如果是早退类型，验证早退分钟数
+    if (attendance_type === 'early_leave' && early_leave_minutes !== undefined && early_leave_minutes <= 0) {
+      return res.status(400).json({ error: '早退分钟数必须大于0' });
     }
     
     // 验证日期格式
@@ -165,46 +238,66 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: '日期格式无效，请使用YYYY-MM-DD格式' });
     }
 
+    // 先获取当前记录
+    const { data: currentRecord } = await supabase
+      .from('attendance_records')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (!currentRecord) {
+      return res.status(404).json({ error: '考勤记录不存在' });
+    }
+    
     // 如果更新了员工、日期或类型，检查是否会产生重复记录
-    if (employee_id || date || absence_type) {
-      // 先获取当前记录
-      const { data: currentRecord } = await supabase
-        .from('attendance_records')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (!currentRecord) {
-        return res.status(404).json({ error: '缺勤记录不存在' });
-      }
-      
+    if (employee_id || date || attendance_type) {
       const newEmployeeId = employee_id || currentRecord.employee_id;
       const newDate = date || currentRecord.date;
-      const newAbsenceType = absence_type || currentRecord.absence_type;
+      const newAttendanceType = attendance_type || currentRecord.attendance_type;
       
       // 检查是否已存在相同的记录（排除当前记录）
-      const { data: existingRecord } = await supabase
+      let existingQuery = supabase
         .from('attendance_records')
         .select('*')
         .eq('employee_id', newEmployeeId)
         .eq('date', newDate)
-        .eq('absence_type', newAbsenceType)
-        .neq('id', id)
-        .single();
+        .eq('attendance_type', newAttendanceType)
+        .neq('id', id);
+      
+      // 如果是缺勤类型，还要检查缺勤类型
+      if (newAttendanceType === 'absence') {
+        const newAbsenceType = absence_type || currentRecord.absence_type;
+        existingQuery = existingQuery.eq('absence_type', newAbsenceType);
+      }
+      
+      const { data: existingRecord } = await existingQuery.single();
       
       if (existingRecord) {
-        return res.status(400).json({ error: '该员工在此日期的此类型缺勤记录已存在' });
+        return res.status(400).json({ error: '该员工在此日期的此类型考勤记录已存在' });
       }
     }
 
+    // 构建更新对象
+    const updateData = {};
+    if (employee_id !== undefined) updateData.employee_id = employee_id;
+    if (date !== undefined) updateData.date = date;
+    if (attendance_type !== undefined) updateData.attendance_type = attendance_type;
+    if (absence_type !== undefined) updateData.absence_type = attendance_type === 'absence' ? absence_type : null;
+    if (reason !== undefined) updateData.reason = reason;
+    if (notes !== undefined) updateData.notes = notes;
+    if (late_minutes !== undefined) updateData.late_minutes = attendance_type === 'late' ? late_minutes : 0;
+    if (early_leave_minutes !== undefined) updateData.early_leave_minutes = attendance_type === 'early_leave' ? early_leave_minutes : 0;
+    if (check_in_time !== undefined) updateData.check_in_time = (attendance_type === 'late' || attendance_type === 'normal') ? check_in_time : null;
+    if (check_out_time !== undefined) updateData.check_out_time = (attendance_type === 'early_leave' || attendance_type === 'normal') ? check_out_time : null;
+
     const { data, error } = await supabase
       .from('attendance_records')
-      .update({ employee_id, date, absence_type, reason, notes })
+      .update(updateData)
       .eq('id', id)
       .select();
 
     if (error) throw error;
-    if (data.length === 0) return res.status(404).json({ error: '缺勤记录不存在' });
+    if (data.length === 0) return res.status(404).json({ error: '考勤记录不存在' });
     
     res.json(data[0]);
   } catch (error) {

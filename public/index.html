@@ -321,7 +321,8 @@
                                 <tr>
                                     <th>员工</th>
                                     <th>日期</th>
-                                    <th>缺勤类型</th>
+                                    <th>考勤类型</th>
+                                    <th>详情</th>
                                     <th>原因</th>
                                     <th>操作</th>
                                 </tr>
@@ -518,14 +519,40 @@
                             <input type="date" class="form-control" id="attendance-date" required>
                         </div>
                         <div class="mb-3">
-                            <label for="attendance-type" class="form-label">缺勤类型</label>
+                            <label for="attendance-type" class="form-label">考勤类型</label>
                             <select class="form-select" id="attendance-type" required>
+                                <option value="">请选择考勤类型</option>
+                                <option value="absence">缺勤</option>
+                                <option value="late">迟到</option>
+                                <option value="early_leave">早退</option>
+                            </select>
+                        </div>
+                        
+                        <!-- 缺勤类型选项，仅在选择缺勤时显示 -->
+                        <div class="mb-3" id="absence-type-group" style="display: none;">
+                            <label for="absence-type" class="form-label">缺勤类型</label>
+                            <select class="form-select" id="absence-type">
                                 <option value="">请选择缺勤类型</option>
                                 <option value="morning">上午</option>
                                 <option value="afternoon">下午</option>
                                 <option value="full_day">全天</option>
                             </select>
                         </div>
+                        
+                        <!-- 迟到选项，仅在选择迟到时显示 -->
+                        <div class="mb-3" id="late-options-group" style="display: none;">
+                            <label for="check-in-time" class="form-label">上班打卡时间</label>
+                            <input type="time" class="form-control" id="check-in-time" required>
+                            <small class="form-text text-muted">系统将自动计算迟到时间（9:00后为迟到）</small>
+                        </div>
+                        
+                        <!-- 早退选项，仅在选择早退时显示 -->
+                        <div class="mb-3" id="early-leave-options-group" style="display: none;">
+                            <label for="check-out-time" class="form-label">下班打卡时间</label>
+                            <input type="time" class="form-control" id="check-out-time" required>
+                            <small class="form-text text-muted">系统将自动计算早退时间（18:00前为早退）</small>
+                        </div>
+                        
                         <div class="mb-3">
                             <label for="attendance-reason" class="form-label">缺勤原因</label>
                             <textarea class="form-control" id="attendance-reason" rows="3"></textarea>

@@ -67,8 +67,27 @@ function initEventListeners() {
     // 员工表单提交
     document.getElementById('save-employee').addEventListener('click', saveEmployee);
     
-    // 缺勤记录表单提交
+    // 考勤记录表单提交
     document.getElementById('save-attendance').addEventListener('click', saveAttendance);
+    
+    // 考勤类型切换
+    document.getElementById('attendance-type').addEventListener('change', function() {
+        const attendanceType = this.value;
+        
+        // 隐藏所有选项组
+        document.getElementById('absence-type-group').style.display = 'none';
+        document.getElementById('late-options-group').style.display = 'none';
+        document.getElementById('early-leave-options-group').style.display = 'none';
+        
+        // 根据选择的考勤类型显示对应的选项组
+        if (attendanceType === 'absence') {
+            document.getElementById('absence-type-group').style.display = 'block';
+        } else if (attendanceType === 'late') {
+            document.getElementById('late-options-group').style.display = 'block';
+        } else if (attendanceType === 'early_leave') {
+            document.getElementById('early-leave-options-group').style.display = 'block';
+        }
+    });
     
     // 筛选按钮
     document.getElementById('apply-filters').addEventListener('click', applyFilters);
@@ -827,27 +846,46 @@ async function loadAttendance(page = 1) {
         const attendanceTable = document.getElementById('attendance-table');
         
         if (attendanceData.records.length === 0) {
-            attendanceTable.innerHTML = '<tr><td colspan="4" class="text-center">暂无记录</td></tr>';
+            attendanceTable.innerHTML = '<tr><td colspan="6" class="text-center">暂无记录</td></tr>';
             document.getElementById('attendance-pagination').innerHTML = '';
             return;
         }
         
-        attendanceTable.innerHTML = attendanceData.records.map(record => `
-            <tr>
-                <td>${record.employee ? `${record.employee.name} (${record.employee.employee_id})` : '未知'}</td>
-                <td>${record.date}</td>
-                <td>${getAbsenceTypeText(record.absence_type)}</td>
-                <td>${record.reason || '-'}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editAttendance('${record.id}')">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteAttendance('${record.id}')">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
+        attendanceTable.innerHTML = attendanceData.records.map(record => {
+            // 根据考勤类型显示不同的信息
+            let typeInfo = '';
+            if (record.attendance_type === 'absence') {
+                typeInfo = getAbsenceTypeText(record.absence_type);
+            } else if (record.attendance_type === 'late') {
+                typeInfo = `迟到 ${record.late_minutes || 0} 分钟`;
+                if (record.check_in_time) {
+                    typeInfo += ` (打卡时间: ${record.check_in_time})`;
+                }
+            } else if (record.attendance_type === 'early_leave') {
+                typeInfo = `早退 ${record.early_leave_minutes || 0} 分钟`;
+                if (record.check_out_time) {
+                    typeInfo += ` (打卡时间: ${record.check_out_time})`;
+                }
+            }
+            
+            return `
+                <tr>
+                    <td>${record.employee ? `${record.employee.name} (${record.employee.employee_id})` : '未知'}</td>
+                    <td>${record.date}</td>
+                    <td>${getAttendanceTypeText(record.attendance_type)}</td>
+                    <td>${typeInfo}</td>
+                    <td>${record.reason || '-'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick="editAttendance('${record.id}')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteAttendance('${record.id}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
         
         // 生成分页
         generatePagination(attendanceData.pagination);
@@ -903,32 +941,74 @@ function generatePagination(pagination) {
     paginationElement.innerHTML = paginationHTML;
 }
 
-// 保存缺勤记录
+// 保存考勤记录
 async function saveAttendance() {
     try {
         const attendanceId = document.getElementById('attendance-id').value;
+        const attendanceType = document.getElementById('attendance-type').value;
+        
+        // 构建基础考勤数据
         const attendanceData = {
             employee_id: document.getElementById('attendance-employee').value,
             date: document.getElementById('attendance-date').value,
-            absence_type: document.getElementById('attendance-type').value,
+            attendance_type: attendanceType,
             reason: document.getElementById('attendance-reason').value,
             notes: document.getElementById('attendance-notes').value
         };
         
+        // 根据考勤类型添加特定字段
+        if (attendanceType === 'absence') {
+            attendanceData.absence_type = document.getElementById('absence-type').value;
+        } else if (attendanceType === 'late') {
+            // 自动计算迟到时间
+            const checkInTime = document.getElementById('check-in-time').value;
+            attendanceData.check_in_time = checkInTime;
+            
+            // 计算迟到分钟数（9:00后为迟到）
+            if (checkInTime) {
+                const [hours, minutes] = checkInTime.split(':').map(Number);
+                const totalMinutes = hours * 60 + minutes;
+                const standardMinutes = 9 * 60; // 9:00 = 540分钟
+                
+                if (totalMinutes > standardMinutes) {
+                    attendanceData.late_minutes = totalMinutes - standardMinutes;
+                } else {
+                    attendanceData.late_minutes = 0;
+                }
+            }
+        } else if (attendanceType === 'early_leave') {
+            // 自动计算早退时间
+            const checkOutTime = document.getElementById('check-out-time').value;
+            attendanceData.check_out_time = checkOutTime;
+            
+            // 计算早退分钟数（18:00前为早退）
+            if (checkOutTime) {
+                const [hours, minutes] = checkOutTime.split(':').map(Number);
+                const totalMinutes = hours * 60 + minutes;
+                const standardMinutes = 18 * 60; // 18:00 = 1080分钟
+                
+                if (totalMinutes < standardMinutes) {
+                    attendanceData.early_leave_minutes = standardMinutes - totalMinutes;
+                } else {
+                    attendanceData.early_leave_minutes = 0;
+                }
+            }
+        }
+        
         if (attendanceId) {
-            // 更新缺勤记录
+            // 更新考勤记录
             await apiRequest(`/api/attendance/${attendanceId}`, {
                 method: 'PUT',
                 body: JSON.stringify(attendanceData)
             });
-            showAlert('缺勤记录更新成功', 'success');
+            showAlert('考勤记录更新成功', 'success');
         } else {
-            // 添加新缺勤记录
+            // 添加新考勤记录
             await apiRequest('/api/attendance', {
                 method: 'POST',
                 body: JSON.stringify(attendanceData)
             });
-            showAlert('缺勤记录添加成功', 'success');
+            showAlert('考勤记录添加成功', 'success');
         }
         
         // 关闭模态框
@@ -939,14 +1019,14 @@ async function saveAttendance() {
         document.getElementById('attendanceForm').reset();
         document.getElementById('attendance-id').value = '';
         
-        // 重新加载缺勤记录
+        // 重新加载考勤记录
         loadAttendance(currentPage);
     } catch (error) {
-        console.error('保存缺勤记录失败:', error);
+        console.error('保存考勤记录失败:', error);
     }
 }
 
-// 编辑缺勤记录
+// 编辑考勤记录
 async function editAttendance(attendanceId) {
     try {
         const record = await apiRequest(`/api/attendance/${attendanceId}`);
@@ -954,16 +1034,29 @@ async function editAttendance(attendanceId) {
         document.getElementById('attendance-id').value = record.id;
         document.getElementById('attendance-employee').value = record.employee_id;
         document.getElementById('attendance-date').value = record.date;
-        document.getElementById('attendance-type').value = record.absence_type;
+        document.getElementById('attendance-type').value = record.attendance_type || 'absence';
         document.getElementById('attendance-reason').value = record.reason || '';
         document.getElementById('attendance-notes').value = record.notes || '';
         
-        document.getElementById('attendanceModalTitle').textContent = '编辑缺勤记录';
+        // 触发考勤类型切换事件，以显示相应的选项组
+        const attendanceTypeSelect = document.getElementById('attendance-type');
+        attendanceTypeSelect.dispatchEvent(new Event('change'));
+        
+        // 根据考勤类型填充特定字段
+        if (record.attendance_type === 'absence') {
+            document.getElementById('absence-type').value = record.absence_type || '';
+        } else if (record.attendance_type === 'late') {
+            document.getElementById('check-in-time').value = record.check_in_time || '';
+        } else if (record.attendance_type === 'early_leave') {
+            document.getElementById('check-out-time').value = record.check_out_time || '';
+        }
+        
+        document.getElementById('attendanceModalTitle').textContent = '编辑考勤记录';
         
         const modal = new bootstrap.Modal(document.getElementById('attendanceModal'));
         modal.show();
     } catch (error) {
-        console.error('编辑缺勤记录失败:', error);
+        console.error('编辑考勤记录失败:', error);
     }
 }
 
@@ -1208,6 +1301,16 @@ function getAbsenceTypeText(type) {
     return types[type] || type;
 }
 
+// 辅助函数：获取考勤类型文本
+function getAttendanceTypeText(type) {
+    const types = {
+        'absence': '缺勤',
+        'late': '迟到',
+        'early_leave': '早退'
+    };
+    return types[type] || type;
+}
+
 // 导出月度记录
 async function exportMonthlyRecords() {
     try {
@@ -1227,7 +1330,7 @@ async function exportMonthlyRecords() {
         
         // 准备Excel数据
         const worksheetData = [
-            ['员工编号', '员工姓名', '日期', '缺勤类型', '备注']
+            ['员工编号', '员工姓名', '日期', '考勤类型', '缺勤类型', '迟到分钟数', '早退分钟数', '上班打卡时间', '下班打卡时间', '备注']
         ];
         
         attendanceRecords.records.forEach(record => {
@@ -1235,7 +1338,12 @@ async function exportMonthlyRecords() {
                 record.employee ? record.employee.employee_number : '',
                 record.employee ? record.employee.name : '未知',
                 record.date,
-                getAbsenceTypeText(record.absence_type),
+                getAttendanceTypeText(record.attendance_type),
+                record.attendance_type === 'absence' ? getAbsenceTypeText(record.absence_type) : '',
+                record.late_minutes || '',
+                record.early_leave_minutes || '',
+                record.check_in_time || '',
+                record.check_out_time || '',
                 record.notes || ''
             ]);
         });
@@ -1273,7 +1381,7 @@ async function exportYearlyRecords() {
         
         // 准备Excel数据
         const worksheetData = [
-            ['员工编号', '员工姓名', '日期', '缺勤类型', '备注']
+            ['员工编号', '员工姓名', '日期', '考勤类型', '缺勤类型', '迟到分钟数', '早退分钟数', '上班打卡时间', '下班打卡时间', '备注']
         ];
         
         attendanceRecords.records.forEach(record => {
@@ -1281,7 +1389,12 @@ async function exportYearlyRecords() {
                 record.employee ? record.employee.employee_number : '',
                 record.employee ? record.employee.name : '未知',
                 record.date,
-                getAbsenceTypeText(record.absence_type),
+                getAttendanceTypeText(record.attendance_type),
+                record.attendance_type === 'absence' ? getAbsenceTypeText(record.absence_type) : '',
+                record.late_minutes || '',
+                record.early_leave_minutes || '',
+                record.check_in_time || '',
+                record.check_out_time || '',
                 record.notes || ''
             ]);
         });

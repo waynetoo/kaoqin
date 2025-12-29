@@ -38,7 +38,7 @@ router.get('/monthly/:year/:month', async (req, res) => {
     
     if (attendanceError) throw attendanceError;
     
-    // 为每个员工统计缺勤情况
+    // 为每个员工统计考勤情况
     const statistics = employees.map(employee => {
       const employeeRecords = attendanceRecords.filter(record => 
         record.employee_id === employee.id
@@ -57,6 +57,24 @@ router.get('/monthly/:year/:month', async (req, res) => {
         record.absence_type === 'full_day'
       ).length;
       
+      // 计算迟到早退次数
+      const lateCount = employeeRecords.filter(record => 
+        record.attendance_type === 'late'
+      ).length;
+      
+      const earlyLeaveCount = employeeRecords.filter(record => 
+        record.attendance_type === 'early_leave'
+      ).length;
+      
+      // 计算总迟到和早退分钟数
+      const totalLateMinutes = employeeRecords
+        .filter(record => record.attendance_type === 'late')
+        .reduce((sum, record) => sum + (record.late_minutes || 0), 0);
+        
+      const totalEarlyLeaveMinutes = employeeRecords
+        .filter(record => record.attendance_type === 'early_leave')
+        .reduce((sum, record) => sum + (record.early_leave_minutes || 0), 0);
+      
       // 计算总缺勤天数（全天缺勤算1天，上午或下午缺勤算0.5天）
       const totalAbsenceDays = fullDayAbsences + (morningAbsences + afternoonAbsences) * 0.5;
       
@@ -69,7 +87,11 @@ router.get('/monthly/:year/:month', async (req, res) => {
         morning_absences: morningAbsences,
         afternoon_absences: afternoonAbsences,
         full_day_absences: fullDayAbsences,
-        total_absence_days: parseFloat(totalAbsenceDays.toFixed(1))
+        total_absence_days: parseFloat(totalAbsenceDays.toFixed(1)),
+        late_count: lateCount,
+        early_leave_count: earlyLeaveCount,
+        total_late_minutes: totalLateMinutes,
+        total_early_leave_minutes: totalEarlyLeaveMinutes
       };
     });
     
@@ -90,7 +112,11 @@ router.get('/monthly/:year/:month', async (req, res) => {
         total_absence_days: parseFloat(statistics.reduce((sum, s) => sum + s.total_absence_days, 0).toFixed(1)),
         total_full_day_absences: statistics.reduce((sum, s) => sum + s.full_day_absences, 0),
         total_morning_absences: statistics.reduce((sum, s) => sum + s.morning_absences, 0),
-        total_afternoon_absences: statistics.reduce((sum, s) => sum + s.afternoon_absences, 0)
+        total_afternoon_absences: statistics.reduce((sum, s) => sum + s.afternoon_absences, 0),
+        total_late_count: statistics.reduce((sum, s) => sum + s.late_count, 0),
+        total_early_leave_count: statistics.reduce((sum, s) => sum + s.early_leave_count, 0),
+        total_late_minutes: statistics.reduce((sum, s) => sum + s.total_late_minutes, 0),
+        total_early_leave_minutes: statistics.reduce((sum, s) => sum + s.total_early_leave_minutes, 0)
       }
     });
   } catch (error) {
@@ -130,7 +156,7 @@ router.get('/yearly/:year', async (req, res) => {
     
     if (attendanceError) throw attendanceError;
     
-    // 为每个员工统计年度缺勤情况
+    // 为每个员工统计年度考勤情况
     const statistics = employees.map(employee => {
       const employeeRecords = attendanceRecords.filter(record => 
         record.employee_id === employee.id
@@ -148,6 +174,24 @@ router.get('/yearly/:year', async (req, res) => {
       const fullDayAbsences = employeeRecords.filter(record => 
         record.absence_type === 'full_day'
       ).length;
+      
+      // 计算迟到早退次数
+      const lateCount = employeeRecords.filter(record => 
+        record.attendance_type === 'late'
+      ).length;
+      
+      const earlyLeaveCount = employeeRecords.filter(record => 
+        record.attendance_type === 'early_leave'
+      ).length;
+      
+      // 计算总迟到和早退分钟数
+      const totalLateMinutes = employeeRecords
+        .filter(record => record.attendance_type === 'late')
+        .reduce((sum, record) => sum + (record.late_minutes || 0), 0);
+        
+      const totalEarlyLeaveMinutes = employeeRecords
+        .filter(record => record.attendance_type === 'early_leave')
+        .reduce((sum, record) => sum + (record.early_leave_minutes || 0), 0);
       
       // 计算总缺勤天数（全天缺勤算1天，上午或下午缺勤算0.5天）
       const totalAbsenceDays = fullDayAbsences + (morningAbsences + afternoonAbsences) * 0.5;
@@ -167,11 +211,25 @@ router.get('/yearly/:year', async (req, res) => {
         const monthFullDay = monthRecords.filter(r => r.absence_type === 'full_day').length;
         const monthTotal = monthFullDay + (monthMorning + monthAfternoon) * 0.5;
         
+        // 计算每月迟到早退统计
+        const monthLateCount = monthRecords.filter(r => r.attendance_type === 'late').length;
+        const monthEarlyLeaveCount = monthRecords.filter(r => r.attendance_type === 'early_leave').length;
+        const monthLateMinutes = monthRecords
+          .filter(r => r.attendance_type === 'late')
+          .reduce((sum, record) => sum + (record.late_minutes || 0), 0);
+        const monthEarlyLeaveMinutes = monthRecords
+          .filter(r => r.attendance_type === 'early_leave')
+          .reduce((sum, record) => sum + (record.early_leave_minutes || 0), 0);
+        
         monthlyStats[month] = {
           morning_absences: monthMorning,
           afternoon_absences: monthAfternoon,
           full_day_absences: monthFullDay,
-          total_absence_days: parseFloat(monthTotal.toFixed(1))
+          total_absence_days: parseFloat(monthTotal.toFixed(1)),
+          late_count: monthLateCount,
+          early_leave_count: monthEarlyLeaveCount,
+          late_minutes: monthLateMinutes,
+          early_leave_minutes: monthEarlyLeaveMinutes
         };
       }
       
@@ -184,6 +242,10 @@ router.get('/yearly/:year', async (req, res) => {
         afternoon_absences: afternoonAbsences,
         full_day_absences: fullDayAbsences,
         total_absence_days: parseFloat(totalAbsenceDays.toFixed(1)),
+        late_count: lateCount,
+        early_leave_count: earlyLeaveCount,
+        total_late_minutes: totalLateMinutes,
+        total_early_leave_minutes: totalEarlyLeaveMinutes,
         monthly_statistics: monthlyStats
       };
     });
@@ -200,13 +262,21 @@ router.get('/yearly/:year', async (req, res) => {
           total_absence_days: acc.total_absence_days + monthData.total_absence_days,
           full_day_absences: acc.full_day_absences + monthData.full_day_absences,
           morning_absences: acc.morning_absences + monthData.morning_absences,
-          afternoon_absences: acc.afternoon_absences + monthData.afternoon_absences
+          afternoon_absences: acc.afternoon_absences + monthData.afternoon_absences,
+          late_count: acc.late_count + monthData.late_count,
+          early_leave_count: acc.early_leave_count + monthData.early_leave_count,
+          late_minutes: acc.late_minutes + monthData.late_minutes,
+          early_leave_minutes: acc.early_leave_minutes + monthData.early_leave_minutes
         };
       }, {
         total_absence_days: 0,
         full_day_absences: 0,
         morning_absences: 0,
-        afternoon_absences: 0
+        afternoon_absences: 0,
+        late_count: 0,
+        early_leave_count: 0,
+        late_minutes: 0,
+        early_leave_minutes: 0
       });
       
       monthlyTrend.push({
@@ -232,6 +302,10 @@ router.get('/yearly/:year', async (req, res) => {
         total_full_day_absences: statistics.reduce((sum, s) => sum + s.full_day_absences, 0),
         total_morning_absences: statistics.reduce((sum, s) => sum + s.morning_absences, 0),
         total_afternoon_absences: statistics.reduce((sum, s) => sum + s.afternoon_absences, 0),
+        total_late_count: statistics.reduce((sum, s) => sum + s.late_count, 0),
+        total_early_leave_count: statistics.reduce((sum, s) => sum + s.early_leave_count, 0),
+        total_late_minutes: statistics.reduce((sum, s) => sum + s.total_late_minutes, 0),
+        total_early_leave_minutes: statistics.reduce((sum, s) => sum + s.total_early_leave_minutes, 0),
         average_absence_days_per_employee: parseFloat((statistics.reduce((sum, s) => sum + s.total_absence_days, 0) / employees.length).toFixed(1))
       }
     });
@@ -293,6 +367,24 @@ router.get('/employee/:id', async (req, res) => {
       record.absence_type === 'full_day'
     ).length;
     
+    // 计算迟到早退次数
+    const lateCount = attendanceRecords.filter(record => 
+      record.attendance_type === 'late'
+    ).length;
+    
+    const earlyLeaveCount = attendanceRecords.filter(record => 
+      record.attendance_type === 'early_leave'
+    ).length;
+    
+    // 计算总迟到和早退分钟数
+    const totalLateMinutes = attendanceRecords
+      .filter(record => record.attendance_type === 'late')
+      .reduce((sum, record) => sum + (record.late_minutes || 0), 0);
+      
+    const totalEarlyLeaveMinutes = attendanceRecords
+      .filter(record => record.attendance_type === 'early_leave')
+      .reduce((sum, record) => sum + (record.early_leave_minutes || 0), 0);
+    
     // 计算总缺勤天数
     const totalAbsenceDays = fullDayAbsences + (morningAbsences + afternoonAbsences) * 0.5;
     
@@ -308,7 +400,11 @@ router.get('/employee/:id', async (req, res) => {
           morning_absences: 0,
           afternoon_absences: 0,
           full_day_absences: 0,
-          total_absence_days: 0
+          total_absence_days: 0,
+          late_count: 0,
+          early_leave_count: 0,
+          late_minutes: 0,
+          early_leave_minutes: 0
         };
       }
       
@@ -323,6 +419,12 @@ router.get('/employee/:id', async (req, res) => {
       } else if (record.absence_type === 'full_day') {
         monthlyStats[month].full_day_absences += 1;
         monthlyStats[month].total_absence_days += 1;
+      } else if (record.attendance_type === 'late') {
+        monthlyStats[month].late_count += 1;
+        monthlyStats[month].late_minutes += record.late_minutes || 0;
+      } else if (record.attendance_type === 'early_leave') {
+        monthlyStats[month].early_leave_count += 1;
+        monthlyStats[month].early_leave_minutes += record.early_leave_minutes || 0;
       }
     });
     
@@ -345,7 +447,11 @@ router.get('/employee/:id', async (req, res) => {
         morning_absences: morningAbsences,
         afternoon_absences: afternoonAbsences,
         full_day_absences: fullDayAbsences,
-        total_absence_days: parseFloat(totalAbsenceDays.toFixed(1))
+        total_absence_days: parseFloat(totalAbsenceDays.toFixed(1)),
+        late_count: lateCount,
+        early_leave_count: earlyLeaveCount,
+        total_late_minutes: totalLateMinutes,
+        total_early_leave_minutes: totalEarlyLeaveMinutes
       },
       monthly_statistics: monthlyStatistics,
       records: attendanceRecords
