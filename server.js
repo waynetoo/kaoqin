@@ -16,11 +16,13 @@ const employeeRoutes = require('./routes/employees');
 const attendanceRoutes = require('./routes/attendance');
 const statisticsRoutes = require('./routes/statistics');
 const lateEarlyStatisticsRoutes = require('./routes/lateEarlyStatistics');
+const holidayRoutes = require('./routes/holidays');
 
 app.use('/api/employees', employeeRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/statistics', statisticsRoutes);
 app.use('/api/late-early-statistics', lateEarlyStatisticsRoutes);
+app.use('/api/holidays', holidayRoutes);
 
 // 根路径
 app.get('/', (req, res) => {

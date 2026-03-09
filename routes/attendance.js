@@ -218,26 +218,6 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: '考勤类型必须是absence、late、early_leave或normal' });
     }
     
-    // 如果是缺勤类型，验证缺勤类型
-    if (attendance_type === 'absence' && absence_type && !['morning', 'afternoon', 'full_day'].includes(absence_type)) {
-      return res.status(400).json({ error: '缺勤类型必须是morning、afternoon或full_day' });
-    }
-    
-    // 如果是迟到类型，验证迟到分钟数
-    if (attendance_type === 'late' && late_minutes !== undefined && late_minutes <= 0) {
-      return res.status(400).json({ error: '迟到分钟数必须大于0' });
-    }
-    
-    // 如果是早退类型，验证早退分钟数
-    if (attendance_type === 'early_leave' && early_leave_minutes !== undefined && early_leave_minutes <= 0) {
-      return res.status(400).json({ error: '早退分钟数必须大于0' });
-    }
-    
-    // 验证日期格式
-    if (date && !moment(date, 'YYYY-MM-DD', true).isValid()) {
-      return res.status(400).json({ error: '日期格式无效，请使用YYYY-MM-DD格式' });
-    }
-
     // 先获取当前记录
     const { data: currentRecord } = await supabase
       .from('attendance_records')
@@ -247,6 +227,29 @@ router.put('/:id', async (req, res) => {
     
     if (!currentRecord) {
       return res.status(404).json({ error: '考勤记录不存在' });
+    }
+    
+    // 确定有效的考勤类型
+    const effectiveAttendanceType = attendance_type !== undefined ? attendance_type : currentRecord.attendance_type;
+    
+    // 如果是缺勤类型，验证缺勤类型
+    if (effectiveAttendanceType === 'absence' && absence_type && !['morning', 'afternoon', 'full_day'].includes(absence_type)) {
+      return res.status(400).json({ error: '缺勤类型必须是morning、afternoon或full_day' });
+    }
+    
+    // 如果是迟到类型，验证迟到分钟数
+    if (effectiveAttendanceType === 'late' && late_minutes !== undefined && late_minutes <= 0) {
+      return res.status(400).json({ error: '迟到分钟数必须大于0' });
+    }
+    
+    // 如果是早退类型，验证早退分钟数
+    if (effectiveAttendanceType === 'early_leave' && early_leave_minutes !== undefined && early_leave_minutes <= 0) {
+      return res.status(400).json({ error: '早退分钟数必须大于0' });
+    }
+    
+    // 验证日期格式
+    if (date && !moment(date, 'YYYY-MM-DD', true).isValid()) {
+      return res.status(400).json({ error: '日期格式无效，请使用YYYY-MM-DD格式' });
     }
     
     // 如果更新了员工、日期或类型，检查是否会产生重复记录
@@ -282,13 +285,15 @@ router.put('/:id', async (req, res) => {
     if (employee_id !== undefined) updateData.employee_id = employee_id;
     if (date !== undefined) updateData.date = date;
     if (attendance_type !== undefined) updateData.attendance_type = attendance_type;
-    if (absence_type !== undefined) updateData.absence_type = attendance_type === 'absence' ? absence_type : null;
+    updateData.absence_type = 'none';
     if (reason !== undefined) updateData.reason = reason;
     if (notes !== undefined) updateData.notes = notes;
-    if (late_minutes !== undefined) updateData.late_minutes = attendance_type === 'late' ? late_minutes : 0;
-    if (early_leave_minutes !== undefined) updateData.early_leave_minutes = attendance_type === 'early_leave' ? early_leave_minutes : 0;
-    if (check_in_time !== undefined) updateData.check_in_time = (attendance_type === 'late' || attendance_type === 'normal') ? check_in_time : null;
-    if (check_out_time !== undefined) updateData.check_out_time = (attendance_type === 'early_leave' || attendance_type === 'normal') ? check_out_time : null;
+    if (late_minutes !== undefined) updateData.late_minutes = effectiveAttendanceType === 'late' ? late_minutes : 0;
+    if (early_leave_minutes !== undefined) updateData.early_leave_minutes = effectiveAttendanceType === 'early_leave' ? early_leave_minutes : 0;
+    if (check_in_time !== undefined) updateData.check_in_time = (effectiveAttendanceType === 'late' || effectiveAttendanceType === 'normal') ? check_in_time : null;
+    if (check_out_time !== undefined) updateData.check_out_time = (effectiveAttendanceType === 'early_leave' || effectiveAttendanceType === 'normal') ? check_out_time : null;
+    
+    console.log('更新数据:', updateData);
 
     const { data, error } = await supabase
       .from('attendance_records')
