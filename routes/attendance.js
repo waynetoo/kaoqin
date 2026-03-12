@@ -149,6 +149,13 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: '早退记录必须指定打卡时间' });
     }
     
+    // 如果是缺勤类型，验证缺勤类型
+    if (attendance_type === 'absence') {
+      if (!absence_type || !['morning', 'afternoon', 'full_day'].includes(absence_type)) {
+        return res.status(400).json({ error: '缺勤类型必须是morning、afternoon或full_day' });
+      }
+    }
+    
     // 验证日期格式
     if (!moment(date, 'YYYY-MM-DD', true).isValid()) {
       return res.status(400).json({ error: '日期格式无效，请使用YYYY-MM-DD格式' });
@@ -233,8 +240,10 @@ router.put('/:id', async (req, res) => {
     const effectiveAttendanceType = attendance_type !== undefined ? attendance_type : currentRecord.attendance_type;
     
     // 如果是缺勤类型，验证缺勤类型
-    if (effectiveAttendanceType === 'absence' && absence_type && !['morning', 'afternoon', 'full_day'].includes(absence_type)) {
-      return res.status(400).json({ error: '缺勤类型必须是morning、afternoon或full_day' });
+    if (effectiveAttendanceType === 'absence') {
+      if (!absence_type || !['morning', 'afternoon', 'full_day'].includes(absence_type)) {
+        return res.status(400).json({ error: '缺勤类型必须是morning、afternoon或full_day' });
+      }
     }
     
     // 如果是迟到类型，验证迟到分钟数
@@ -285,7 +294,7 @@ router.put('/:id', async (req, res) => {
     if (employee_id !== undefined) updateData.employee_id = employee_id;
     if (date !== undefined) updateData.date = date;
     if (attendance_type !== undefined) updateData.attendance_type = attendance_type;
-    updateData.absence_type = 'none';
+    if (absence_type !== undefined) updateData.absence_type = absence_type;
     if (reason !== undefined) updateData.reason = reason;
     if (notes !== undefined) updateData.notes = notes;
     if (late_minutes !== undefined) updateData.late_minutes = effectiveAttendanceType === 'late' ? late_minutes : 0;

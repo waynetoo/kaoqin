@@ -1049,7 +1049,12 @@ async function saveAttendance() {
         
         // 根据考勤类型添加特定字段
         if (attendanceType === 'absence') {
-            attendanceData.absence_type = document.getElementById('absence-type').value;
+            const absenceType = document.getElementById('absence-type').value;
+            if (!absenceType) {
+                showAlert('请选择缺勤类型', 'danger');
+                return;
+            }
+            attendanceData.absence_type = absenceType;
         } else if (attendanceType === 'late') {
             // 自动计算迟到时间
             const checkInTime = document.getElementById('check-in-time').value;
@@ -1396,197 +1401,48 @@ function updateStatsSummary(statsData, statsType) {
         `${statsData.period.year}年${statsData.period.month}月` : 
         `${statsData.period.year}年`;
     
-    if (statsType === 'yearly') {
-        // 年度统计显示更多指标
-        summaryElement.innerHTML = `
-            <div class="row">
-                <div class="col-md-2">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-primary">${statsData.summary.total_employees}</h5>
-                            <p class="card-text small">员工总数</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title">${statsData.summary.work_days || 0}</h5>
-                            <p class="card-text small">工作日天数</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-danger">${statsData.summary.total_absence_days}</h5>
-                            <p class="card-text small">总缺勤天数</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-warning">${statsData.summary.total_late_count}</h5>
-                            <p class="card-text small">迟到次数</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-info">${statsData.summary.total_early_leave_count}</h5>
-                            <p class="card-text small">早退次数</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-secondary">${(statsData.summary.average_absence_ratio * 100).toFixed(1)}%</h5>
-                            <p class="card-text small">平均缺勤率</p>
-                        </div>
-                    </div>
+    // 生成员工出勤情况表格
+    summaryElement.innerHTML = `
+        <div class="row">
+            <div class="col-md-12">
+                <h6 class="mb-3">${periodText} 员工出勤情况</h6>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-primary text-white">
+                            <tr>
+                                <th>员工姓名</th>
+                                <th>总缺勤天数</th>
+                                <th>应该出勤天数</th>
+                                <th>全天缺勤天数</th>
+                                <th>上午缺勤天数</th>
+                                <th>下午缺勤天数</th>
+                                <th>迟到次数</th>
+                                <th>总迟到时长</th>
+                                <th>缺勤异常总数</th>
+                                <th>缺勤率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${statsData.employee_statistics.map(emp => `
+                                <tr style="cursor: pointer;" onclick="viewEmployeeAttendanceDetails('${emp.employee_id}', ${emp.year}, ${emp.month})">
+                                    <td>${emp.name}</td>
+                                    <td>${emp.total_absence_days}</td>
+                                    <td>${emp.should_attend_days}</td>
+                                    <td>${emp.full_day_absences}</td>
+                                    <td>${emp.morning_absences}</td>
+                                    <td>${emp.afternoon_absences}</td>
+                                    <td>${emp.late_count}</td>
+                                    <td>${Math.floor(emp.total_late_minutes / 60)}小时${emp.total_late_minutes % 60}分钟</td>
+                                    <td>${emp.abnormal_count}</td>
+                                    <td>${(emp.absence_ratio * 100).toFixed(1)}%</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6>综合指标</h6>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <strong>考勤异常总数:</strong> ${statsData.summary.total_abnormal_count} 次
-                                </div>
-                                <div class="col-md-4">
-                                    <strong>总迟到时长:</strong> ${Math.floor(statsData.summary.total_late_minutes / 60)}小时${statsData.summary.total_late_minutes % 60}分钟
-                                </div>
-                                <div class="col-md-4">
-                                    <strong>缺勤率:</strong> ${(statsData.summary.average_absence_ratio * 100).toFixed(1)}%
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6>缺勤类型分布</h6>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <strong>全天缺勤:</strong> ${statsData.summary.total_full_day_absences} 天
-                                </div>
-                                <div class="col-md-4">
-                                    <strong>上午缺勤:</strong> ${statsData.summary.total_morning_absences} 次
-                                </div>
-                                <div class="col-md-4">
-                                    <strong>下午缺勤:</strong> ${statsData.summary.total_afternoon_absences} 次
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    } else {
-        // 月度统计显示与年度相同的指标
-        summaryElement.innerHTML = `
-            <div class="row">
-                <div class="col-md-2">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-primary">${statsData.summary.total_employees}</h5>
-                            <p class="card-text small">员工总数</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title">${statsData.summary.work_days || 0}</h5>
-                            <p class="card-text small">工作日天数</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-danger">${statsData.summary.total_absence_days}</h5>
-                            <p class="card-text small">总缺勤天数</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-warning">${statsData.summary.total_late_count}</h5>
-                            <p class="card-text small">迟到次数</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-info">${statsData.summary.total_early_leave_count}</h5>
-                            <p class="card-text small">早退次数</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-secondary">${(statsData.summary.average_absence_ratio * 100).toFixed(1)}%</h5>
-                            <p class="card-text small">平均缺勤率</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6>综合指标</h6>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <strong>考勤异常总数:</strong> ${statsData.summary.total_abnormal_count} 次
-                                </div>
-                                <div class="col-md-4">
-                                    <strong>总迟到时长:</strong> ${Math.floor(statsData.summary.total_late_minutes / 60)}小时${statsData.summary.total_late_minutes % 60}分钟
-                                </div>
-                                <div class="col-md-4">
-                                    <strong>缺勤率:</strong> ${(statsData.summary.average_absence_ratio * 100).toFixed(1)}%
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <h6>缺勤类型分布</h6>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <strong>全天缺勤:</strong> ${statsData.summary.total_full_day_absences} 天
-                                </div>
-                                <div class="col-md-4">
-                                    <strong>上午缺勤:</strong> ${statsData.summary.total_morning_absences} 次
-                                </div>
-                                <div class="col-md-4">
-                                    <strong>下午缺勤:</strong> ${statsData.summary.total_afternoon_absences} 次
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
+        </div>
+    `;
 }
 
 // 辅助函数：获取缺勤类型文本
@@ -1604,9 +1460,100 @@ function getAttendanceTypeText(type) {
     const types = {
         'absence': '缺勤',
         'late': '迟到',
-        'early_leave': '早退'
+        'early_leave': '早退',
+        'normal': '正常'
     };
     return types[type] || type;
+}
+
+// 查看员工考勤详情
+async function viewEmployeeAttendanceDetails(employeeId, year, month) {
+    try {
+        console.log('查看员工考勤详情:', { employeeId, year, month });
+        // 构建日期范围
+        let startDate, endDate;
+        if (month) {
+            // 月度统计
+            startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
+            endDate = moment(`${year}-${month.toString().padStart(2, '0')}-01`).endOf('month').format('YYYY-MM-DD');
+        } else {
+            // 年度统计
+            startDate = `${year}-01-01`;
+            endDate = `${year}-12-31`;
+        }
+        
+        console.log('日期范围:', { startDate, endDate });
+        
+        // 获取员工的考勤记录
+        const apiUrl = `/api/attendance?employee_id=${employeeId}&start_date=${startDate}&end_date=${endDate}`;
+        console.log('API URL:', apiUrl);
+        
+        const records = await apiRequest(apiUrl);
+        console.log('API 响应:', records);
+        
+        // 过滤出缺勤和迟到记录
+        const absenceLateRecords = records.records.filter(record => 
+            record.attendance_type === 'absence' || record.attendance_type === 'late'
+        );
+        
+        // 按日期排序
+        absenceLateRecords.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        // 生成详情HTML
+        let detailsHTML = `
+            <h6 class="mb-3">员工考勤详情</h6>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-primary text-white">
+                        <tr>
+                            <th>日期</th>
+                            <th>考勤类型</th>
+                            <th>缺勤类型</th>
+                            <th>迟到时长</th>
+                            <th>原因</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        if (absenceLateRecords.length === 0) {
+            detailsHTML += `
+                <tr>
+                    <td colspan="6" class="text-center">该员工在此期间无缺勤或迟到记录</td>
+                </tr>
+            `;
+        } else {
+            absenceLateRecords.forEach(record => {
+                detailsHTML += `
+                    <tr>
+                        <td>${record.date}</td>
+                        <td>${getAttendanceTypeText(record.attendance_type)}</td>
+                        <td>${record.attendance_type === 'absence' ? getAbsenceTypeText(record.absence_type) : '-'}</td>
+                        <td>${record.attendance_type === 'late' ? `${Math.floor(record.late_minutes / 60)}小时${record.late_minutes % 60}分钟` : '-'}</td>
+                        <td>${record.reason || '-'}</td>
+                        <td>${record.notes || '-'}</td>
+                    </tr>
+                `;
+            });
+        }
+        
+        detailsHTML += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        // 更新模态框内容
+        document.getElementById('employeeAttendanceDetails').innerHTML = detailsHTML;
+        
+        // 显示模态框
+        const modal = new bootstrap.Modal(document.getElementById('employeeAttendanceModal'));
+        modal.show();
+    } catch (error) {
+        console.error('获取员工考勤详情失败:', error);
+        showAlert(`获取员工考勤详情失败: ${error.message}`, 'danger');
+    }
 }
 
 // 导出月度记录
